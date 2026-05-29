@@ -42,13 +42,17 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "test:unit": "mocha",
-    "vscode:prepublish": "node esbuild.js --production"
+    "vscode:prepublish": "node esbuild.js --production",
+    "compile:test": "tsc -p ./tsconfig.json",
+    "test:int": "npm run compile && npm run compile:test && node ./out/test/integration/runTest.js"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "^18.19.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.9",
     "esbuild": "^0.20.0",
+    "glob": "^10.3.10",
     "mocha": "^10.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
