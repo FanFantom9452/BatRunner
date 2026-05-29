@@ -5,28 +5,33 @@ output in an integrated terminal, and export it to a UTF-8 log file.
 
 ## Install
 
-> Replace `YOUR-GH-USER` with the GitHub account that hosts this repo.
+Requires VS Code already installed with the `code` CLI on PATH (the Windows
+installer adds it by default; on macOS run "Shell Command: Install 'code'
+command in PATH"). These download the latest release `.vsix` and sideload it
+into **official VS Code** — no Marketplace account needed.
 
-**One command (Windows PowerShell)** — downloads the latest release and installs
-into VS Code:
+**One command (Windows CMD):**
+
+```bat
+curl -fL -o "%TEMP%\batrunner.vsix" https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension "%TEMP%\batrunner.vsix"
+```
+
+**One command (Windows PowerShell):**
 
 ```powershell
-iwr https://github.com/YOUR-GH-USER/batrunner/releases/latest/download/batrunner.vsix -OutFile "$env:TEMP\batrunner.vsix"; code --install-extension "$env:TEMP\batrunner.vsix"
+iwr https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix -OutFile "$env:TEMP\batrunner.vsix"; code --install-extension "$env:TEMP\batrunner.vsix"
 ```
 
 **One command (macOS / Linux):**
 
 ```bash
-curl -L -o /tmp/batrunner.vsix https://github.com/YOUR-GH-USER/batrunner/releases/latest/download/batrunner.vsix && code --install-extension /tmp/batrunner.vsix
+curl -fL -o /tmp/batrunner.vsix https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension /tmp/batrunner.vsix
 ```
 
-Then reload VS Code. Re-running the same command later upgrades to the newest
-release. (Requires the `code` CLI on PATH — VS Code adds it on Windows by
-default; on macOS run "Shell Command: Install 'code' command in PATH".)
-
-This sideloads a `.vsix` and works in **official VS Code** — no Marketplace
-account needed. Sideloaded extensions do not auto-update; re-run the command to
-update.
+Then reload VS Code (or just relaunch it). Re-running the same command later
+upgrades to the newest release. Sideloaded extensions do not auto-update, so
+re-run to update. The `-f` flag makes `curl` fail loudly if the download is
+missing, so a 404 never gets installed as a broken file.
 
 Manual alternative: download `batrunner.vsix` from the repo's Releases page, then
 in VS Code → Extensions → `...` → "Install from VSIX...".
