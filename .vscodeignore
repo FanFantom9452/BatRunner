@@ -1,0 +1,21 @@
+# Only the esbuild bundle (dist/), the manifest, README and LICENSE ship in the
+# .vsix. iconv-lite is bundled into dist/extension.js, so node_modules and src
+# are not needed at runtime.
+.vscode/**
+.vscode-test/**
+out/**
+src/**
+test/**
+node_modules/**
+docs/**
+.github/**
+**/*.ts
+**/*.map
+**/tsconfig.json
+.mocharc.json
+esbuild.js
+.gitignore
+.vscodeignore
+package-lock.json
+*.vsix
+*.bat
