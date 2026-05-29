@@ -8,6 +8,7 @@
   "categories": ["Other"],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "type": "commonjs",
   "contributes": {
     "commands": [
       { "command": "batRunner.run", "title": "BatRunner: Run", "icon": "$(play)" },
@@ -46,7 +47,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
-    "@types/node": "^20.11.0",
+    "@types/node": "^18.19.0",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.20.0",
     "mocha": "^10.3.0",
