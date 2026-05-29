@@ -23,18 +23,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Output a STABLE, unversioned filename so the install one-liner
+      # (releases/latest/download/batrunner.vsix) keeps working across versions.
       - name: Package .vsix
-        run: npx vsce package
+        run: npx vsce package -o batrunner.vsix
 
       - name: Attach .vsix to a GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: '*.vsix'
+          files: batrunner.vsix
 
-      # Optional: also publish to the VS Code Marketplace.
-      # Only runs if you add a repository secret named VSCE_PAT.
-      - name: Publish to Marketplace
-        if: ${{ env.VSCE_PAT != '' }}
+      # OPTIONAL: also publish to Open VSX (open-vsx.org) so the extension is
+      # searchable inside Cursor / VSCodium / Gitpod. Runs only if you add a
+      # repository secret named OVSX_PAT. Requires the package.json "publisher"
+      # to match a namespace you created on open-vsx.org.
+      - name: Publish to Open VSX
+        if: ${{ env.OVSX_PAT != '' }}
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx vsce publish -p "$VSCE_PAT"
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish batrunner.vsix -p "$OVSX_PAT"

@@ -47,6 +47,7 @@
     "vscode:prepublish": "node esbuild.js --production",
     "package": "vsce package",
     "publish": "vsce publish",
+    "publish:ovsx": "ovsx publish",
     "compile:test": "tsc -p ./tsconfig.json",
     "test:int": "npm run compile && npm run compile:test && node ./out/test/integration/runTest.js"
   },
@@ -57,6 +58,7 @@
     "@vscode/test-electron": "^2.3.9",
     "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.20.0",
+    "ovsx": "^0.10.1",
     "glob": "^10.3.10",
     "mocha": "^10.3.0",
     "ts-node": "^10.9.2",
