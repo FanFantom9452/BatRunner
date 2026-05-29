@@ -1,40 +1,42 @@
 # BatRunner
 
-Run `.bat` / `.cmd` scripts from the VSCode editor title bar, capture their
-output in an integrated terminal, and export it to a UTF-8 log file.
-
-## Install
-
-Requires VS Code already installed with the `code` CLI on PATH (the Windows
-installer adds it by default; on macOS run "Shell Command: Install 'code'
-command in PATH"). These download the latest release `.vsix` and sideload it
-into **official VS Code** — no Marketplace account needed.
-
-**One command (Windows CMD):**
+**Install — paste one line into Windows CMD:**
 
 ```bat
 curl -fL -o "%TEMP%\batrunner.vsix" https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension "%TEMP%\batrunner.vsix"
 ```
 
-**One command (Windows PowerShell):**
+Then reload VS Code (or relaunch). That's it — it downloads the latest release
+and sideloads into **official VS Code**, no Marketplace account needed. Re-run
+the same line anytime to update. (Needs VS Code with the `code` CLI on PATH —
+added by default by the Windows installer.)
+
+Run `.bat` / `.cmd` straight from the editor title bar: run it in place, keep
+the terminal open after it finishes, and export the captured output (with a
+header + exit code) to a UTF-8 log file next to the script.
+
+<details>
+<summary>Other ways to install (PowerShell / macOS / Linux / manual)</summary>
+
+**Windows PowerShell:**
 
 ```powershell
 iwr https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix -OutFile "$env:TEMP\batrunner.vsix"; code --install-extension "$env:TEMP\batrunner.vsix"
 ```
 
-**One command (macOS / Linux):**
+**macOS / Linux:**
 
 ```bash
 curl -fL -o /tmp/batrunner.vsix https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension /tmp/batrunner.vsix
 ```
 
-Then reload VS Code (or just relaunch it). Re-running the same command later
-upgrades to the newest release. Sideloaded extensions do not auto-update, so
-re-run to update. The `-f` flag makes `curl` fail loudly if the download is
-missing, so a 404 never gets installed as a broken file.
+**Manual:** download `batrunner.vsix` from the repo's Releases page, then in
+VS Code → Extensions → `...` → "Install from VSIX...".
 
-Manual alternative: download `batrunner.vsix` from the repo's Releases page, then
-in VS Code → Extensions → `...` → "Install from VSIX...".
+The `-f` flag makes `curl` fail loudly on a missing download, so a 404 never
+gets installed as a broken file.
+
+</details>
 
 ## Features
 
