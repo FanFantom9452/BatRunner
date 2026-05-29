@@ -1,0 +1,59 @@
+{
+  "name": "batrunner",
+  "displayName": "BatRunner",
+  "description": "Run .bat/.cmd from the editor title bar, capture output, and export to UTF-8 logs.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "batRunner.run", "title": "BatRunner: Run", "icon": "$(play)" },
+      { "command": "batRunner.exportLast", "title": "BatRunner: Export Last Output", "icon": "$(save)" },
+      { "command": "batRunner.runExternal", "title": "BatRunner: Run in External CMD" },
+      { "command": "batRunner.clear", "title": "BatRunner: Clear Terminal" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "batRunner.run", "when": "resourceExtname == .bat || resourceExtname == .cmd", "group": "navigation@1" },
+        { "command": "batRunner.exportLast", "when": "resourceExtname == .bat || resourceExtname == .cmd", "group": "navigation@2" }
+      ],
+      "terminal/context": [
+        { "command": "batRunner.clear", "group": "navigation" }
+      ]
+    },
+    "keybindings": [
+      { "command": "batRunner.clear", "key": "ctrl+alt+l", "when": "terminalFocus" }
+    ],
+    "configuration": {
+      "title": "BatRunner",
+      "properties": {
+        "batRunner.autoSave": { "type": "boolean", "default": false, "description": "Automatically export output to a log file after each run." },
+        "batRunner.encoding": { "type": "string", "default": "cp950", "description": "Codepage used to decode script output (e.g. cp950 for Traditional Chinese Windows, utf8)." },
+        "batRunner.logFolderName": { "type": "string", "default": "batRunnerLogs", "description": "Name of the subfolder (next to the script) where logs are saved." },
+        "batRunner.utf8Bom": { "type": "boolean", "default": true, "description": "Write a UTF-8 BOM at the start of exported log files." },
+        "batRunner.terminalMode": { "type": "string", "enum": ["integrated", "external"], "default": "integrated", "description": "Default place to run scripts." }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "test:unit": "mocha",
+    "vscode:prepublish": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "mocha": "^10.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3"
+  }
+}
