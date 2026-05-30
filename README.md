@@ -1,22 +1,28 @@
 # BatRunner
 
-**Install — paste one line into Windows CMD:**
+**Install — paste one line into Windows CMD or PowerShell:**
 
-```bat
-curl -fL -o "%TEMP%\batrunner.vsix" https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension "%TEMP%\batrunner.vsix"
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/FanFantom9452/BatRunner/master/install.ps1 | iex"
 ```
 
-Then reload VS Code (or relaunch). That's it — it downloads the latest release
-and sideloads into **official VS Code**, no Marketplace account needed. Re-run
-the same line anytime to update. (Needs VS Code with the `code` CLI on PATH —
-added by default by the Windows installer.)
+Prints a green ✅ **Install Completed** when done, then reload VS Code. It
+downloads the latest release and sideloads into **official VS Code**, no
+Marketplace account needed. Re-run the same line anytime to update. (Needs
+VS Code with the `code` CLI on PATH — added by default by the Windows installer.)
 
 Run `.bat` / `.cmd` straight from the editor title bar: run it in place, keep
 the terminal open after it finishes, and export the captured output (with a
 header + exit code) to a UTF-8 log file next to the script.
 
 <details>
-<summary>Other ways to install (PowerShell / macOS / Linux / manual)</summary>
+<summary>Other ways to install (no remote script / PowerShell / macOS / Linux / manual)</summary>
+
+**Windows CMD (downloads + installs directly, no remote script):**
+
+```bat
+curl -fL -o "%TEMP%\batrunner.vsix" https://github.com/FanFantom9452/BatRunner/releases/latest/download/batrunner.vsix && code --install-extension "%TEMP%\batrunner.vsix"
+```
 
 **Windows PowerShell:**
 
