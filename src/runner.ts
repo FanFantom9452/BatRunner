@@ -1,24 +1,26 @@
 import * as vscode from 'vscode';
-import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
-import { createDecoder } from './encoding';
-import { CLEAR_SEQUENCE, toTerminalText, exitLine } from './format';
+import { stripAnsi } from './format';
 import { RunResult } from './types';
 
-interface ActiveTerminal {
+interface ManagedTerminal {
   terminal: vscode.Terminal;
-  writeEmitter: vscode.EventEmitter<string>;
+  /** Resolves with the shell integration once active, or undefined on timeout. */
+  ready: Promise<vscode.TerminalShellIntegration | undefined>;
 }
 
+// How long to wait for VS Code to activate shell integration before falling
+// back to a plain (uncaptured) run.
+const SHELL_INTEGRATION_TIMEOUT_MS = 8000;
+
 export class Runner {
-  private terminals = new Map<string, ActiveTerminal>();
+  private terminals = new Map<string, ManagedTerminal>();
   /** The most recently COMPLETED run (last to finish), shared across scripts. */
   private lastRun: RunResult | undefined;
   private closeSub: vscode.Disposable;
 
   constructor() {
-    // Drop map entries when the user closes a managed terminal from the UI,
-    // so we never hold disposed terminals / dead emitters.
+    // Drop map entries when the user closes a managed terminal from the UI.
     this.closeSub = vscode.window.onDidCloseTerminal((closed) => {
       for (const [key, entry] of this.terminals) {
         if (entry.terminal === closed) {
@@ -33,73 +35,95 @@ export class Runner {
     return this.lastRun;
   }
 
-  run(scriptPath: string, encoding: string, onComplete?: (result: RunResult) => void): void {
-    const cwd = path.dirname(scriptPath);
-    const command = `cmd /c "${scriptPath}"`;
-    const startTime = new Date();
-    let buffer = '';
-    let child: ChildProcess | undefined;
-
-    const writeEmitter = new vscode.EventEmitter<string>();
-    const closeEmitter = new vscode.EventEmitter<number | void>();
-
-    // One stateful decoder per stream: retains partial multi-byte characters
-    // across chunk boundaries so split cp950/UTF-8 chars are not corrupted.
-    const decOut = createDecoder(encoding);
-    const decErr = createDecoder(encoding);
-
-    const emit = (text: string): void => {
-      if (!text) {
-        return;
-      }
-      buffer += text;
-      writeEmitter.fire(toTerminalText(text));
-    };
-
-    const pty: vscode.Pseudoterminal = {
-      onDidWrite: writeEmitter.event,
-      onDidClose: closeEmitter.event,
-      open: () => {
-        writeEmitter.fire(`> ${command}\r\n\r\n`);
-        // No `encoding` option: raw Buffers so the decoder controls decoding.
-        // Quote the path + shell:true so paths with spaces or cmd metacharacters
-        // (&, ^, (, )) run correctly (Node runs cmd.exe /d /s /c ""<path>"").
-        // windowsHide: stop the spawned cmd.exe from flashing its own console
-        // window — output already streams into this Pseudoterminal.
-        child = spawn(`"${scriptPath}"`, { cwd, shell: true, windowsHide: true });
-        child.stdout?.on('data', (data: Buffer) => emit(decOut.write(data)));
-        child.stderr?.on('data', (data: Buffer) => emit(decErr.write(data)));
-        child.on('error', (err) => {
-          writeEmitter.fire(toTerminalText(`\n[BatRunner] spawn error: ${err.message}\n`));
-        });
-        child.on('exit', (code) => {
-          emit(decOut.end()); // flush trailing partial characters
-          emit(decErr.end());
-          writeEmitter.fire(exitLine(code));
-          this.lastRun = { scriptPath, command, startTime, exitCode: code, output: buffer };
-          onComplete?.(this.lastRun);
-          // Intentionally keep the terminal open (do not fire closeEmitter).
-        });
-      },
-      close: () => {
-        child?.kill();
-      },
-    };
-
-    // Reuse strategy: dispose any prior terminal for this script so output
-    // does not pile up; the fresh terminal starts empty (no scrollback).
+  // Get (or create) the real terminal for a script. We force powershell.exe
+  // because VS Code reliably activates shell integration for it on Windows,
+  // which gives us a real TTY (so docker/timeout/pause work) plus a readable
+  // output stream (so we can still capture + export).
+  private getTerminal(scriptPath: string): ManagedTerminal {
     const existing = this.terminals.get(scriptPath);
     if (existing) {
-      existing.terminal.dispose();
-      this.terminals.delete(scriptPath);
+      return existing;
     }
 
     const terminal = vscode.window.createTerminal({
       name: `BatRunner: ${path.basename(scriptPath)}`,
-      pty,
+      cwd: path.dirname(scriptPath),
+      shellPath: 'powershell.exe',
     });
-    this.terminals.set(scriptPath, { terminal, writeEmitter });
-    terminal.show();
+
+    const ready = new Promise<vscode.TerminalShellIntegration | undefined>((resolve) => {
+      if (terminal.shellIntegration) {
+        resolve(terminal.shellIntegration);
+        return;
+      }
+      const sub = vscode.window.onDidChangeTerminalShellIntegration((e) => {
+        if (e.terminal === terminal) {
+          clearTimeout(timer);
+          sub.dispose();
+          resolve(e.shellIntegration);
+        }
+      });
+      const timer = setTimeout(() => {
+        sub.dispose();
+        resolve(undefined);
+      }, SHELL_INTEGRATION_TIMEOUT_MS);
+    });
+
+    const managed: ManagedTerminal = { terminal, ready };
+    this.terminals.set(scriptPath, managed);
+    return managed;
+  }
+
+  async run(
+    scriptPath: string,
+    _encoding: string,
+    onComplete?: (result: RunResult) => void
+  ): Promise<void> {
+    const startTime = new Date();
+    const command = `cmd /c "${scriptPath}"`;
+    const managed = this.getTerminal(scriptPath);
+    managed.terminal.show();
+
+    const si = await managed.ready;
+
+    if (!si) {
+      // No shell integration: still run it (real TTY works), but we cannot read
+      // the output back, so there is nothing to capture/export for this run.
+      managed.terminal.sendText(command, true);
+      vscode.window.showWarningMessage(
+        'BatRunner: terminal shell integration is unavailable, so this run cannot be captured or exported. The script still runs in the terminal.'
+      );
+      return;
+    }
+
+    const execution = si.executeCommand('cmd', ['/c', scriptPath]);
+
+    // Consume the output stream immediately so no data is missed. We keep the
+    // raw text (with control codes) for the live terminal, but store an
+    // ANSI-stripped copy for a clean exported log.
+    let raw = '';
+    const readDone = (async () => {
+      for await (const chunk of execution.read()) {
+        raw += chunk;
+      }
+    })();
+
+    const endSub = vscode.window.onDidEndTerminalShellExecution(async (e) => {
+      if (e.execution !== execution) {
+        return;
+      }
+      endSub.dispose();
+      await readDone.catch(() => {});
+      const output = stripAnsi(raw).replace(/\r\n?/g, '\n').replace(/^\n+/, '');
+      this.lastRun = {
+        scriptPath,
+        command,
+        startTime,
+        exitCode: e.exitCode ?? null,
+        output,
+      };
+      onComplete?.(this.lastRun);
+    });
   }
 
   clearActive(): void {
@@ -109,7 +133,8 @@ export class Runner {
     }
     for (const entry of this.terminals.values()) {
       if (entry.terminal === active) {
-        entry.writeEmitter.fire(CLEAR_SEQUENCE);
+        // Clears the screen and the scrollback buffer of the active terminal.
+        vscode.commands.executeCommand('workbench.action.terminal.clear');
         return;
       }
     }
