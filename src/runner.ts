@@ -64,7 +64,9 @@ export class Runner {
         // No `encoding` option: raw Buffers so the decoder controls decoding.
         // Quote the path + shell:true so paths with spaces or cmd metacharacters
         // (&, ^, (, )) run correctly (Node runs cmd.exe /d /s /c ""<path>"").
-        child = spawn(`"${scriptPath}"`, { cwd, shell: true });
+        // windowsHide: stop the spawned cmd.exe from flashing its own console
+        // window — output already streams into this Pseudoterminal.
+        child = spawn(`"${scriptPath}"`, { cwd, shell: true, windowsHide: true });
         child.stdout?.on('data', (data: Buffer) => emit(decOut.write(data)));
         child.stderr?.on('data', (data: Buffer) => emit(decErr.write(data)));
         child.on('error', (err) => {

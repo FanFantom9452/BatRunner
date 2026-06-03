@@ -19,3 +19,4 @@ esbuild.js
 package-lock.json
 *.vsix
 *.bat
+*.ps1

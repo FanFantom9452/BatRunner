@@ -2,7 +2,7 @@
   "name": "batrunner",
   "displayName": "BatRunner",
   "description": "Run .bat/.cmd from the editor title bar, capture output, and export to UTF-8 logs.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "local",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/FanFantom9452/BatRunner.git" },
