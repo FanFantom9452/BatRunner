@@ -4,8 +4,30 @@ import * as path from 'path';
 import { Runner } from './runner';
 import { getConfig } from './config';
 import { saveLog } from './exporter';
+import { RunResult } from './types';
 
 let runner: Runner;
+
+// Decide which script's run the save button exports when several have run.
+// The save button lives on a .bat editor's title bar, so the file you are
+// looking at wins; then the focused terminal; then the most recently started.
+function pickExportTarget(): RunResult | undefined {
+  const scriptPath = activeScriptPath();
+  if (scriptPath) {
+    const r = runner.getResultForScript(scriptPath);
+    if (r) {
+      return r;
+    }
+  }
+  const active = vscode.window.activeTerminal;
+  if (active) {
+    const r = runner.getResultForTerminal(active);
+    if (r) {
+      return r;
+    }
+  }
+  return runner.getLastRun();
+}
 
 function activeScriptPath(): string | undefined {
   const editor = vscode.window.activeTextEditor;
@@ -74,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('batRunner.exportLast', async () => {
-      const result = runner.getLastRun();
+      const result = pickExportTarget();
       if (!result) {
         vscode.window.showInformationMessage('BatRunner: no run output to export yet.');
         return;

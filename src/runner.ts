@@ -7,6 +7,8 @@ interface ManagedTerminal {
   terminal: vscode.Terminal;
   /** Resolves with the shell integration once active, or undefined on timeout. */
   ready: Promise<vscode.TerminalShellIntegration | undefined>;
+  /** Latest run for this terminal's script; updated live as output streams. */
+  result?: RunResult;
 }
 
 // How long to wait for VS Code to activate shell integration before falling
@@ -15,7 +17,8 @@ const SHELL_INTEGRATION_TIMEOUT_MS = 8000;
 
 export class Runner {
   private terminals = new Map<string, ManagedTerminal>();
-  /** The most recently COMPLETED run (last to finish), shared across scripts. */
+  /** The most recently STARTED run, used as a fallback when no terminal/editor
+   *  pins a specific script. */
   private lastRun: RunResult | undefined;
   private closeSub: vscode.Disposable;
 
@@ -35,6 +38,21 @@ export class Runner {
     return this.lastRun;
   }
 
+  /** The run owned by a specific terminal (e.g. the focused one), if any. */
+  getResultForTerminal(terminal: vscode.Terminal): RunResult | undefined {
+    for (const entry of this.terminals.values()) {
+      if (entry.terminal === terminal) {
+        return entry.result;
+      }
+    }
+    return undefined;
+  }
+
+  /** The run for a specific script (e.g. the active editor's file), if any. */
+  getResultForScript(scriptPath: string): RunResult | undefined {
+    return this.terminals.get(scriptPath)?.result;
+  }
+
   // Get (or create) the real terminal for a script. We force powershell.exe
   // because VS Code reliably activates shell integration for it on Windows,
   // which gives us a real TTY (so docker/timeout/pause work) plus a readable
@@ -45,6 +63,12 @@ export class Runner {
       return existing;
     }
 
+    // Force powershell.exe (always present) because VS Code reliably activates
+    // shell integration for it. We deliberately pass NO shellArgs: VS Code's
+    // automatic shell-integration injection works by controlling the args, so
+    // setting our own (e.g. -NoProfile) suppresses injection and we lose the
+    // readable output stream (capture/export). The user's $PROFILE therefore
+    // loads, which also means a profile-activated venv is inherited by cmd /c.
     const terminal = vscode.window.createTerminal({
       name: `BatRunner: ${path.basename(scriptPath)}`,
       cwd: path.dirname(scriptPath),
@@ -98,13 +122,22 @@ export class Runner {
 
     const execution = si.executeCommand('cmd', ['/c', scriptPath]);
 
-    // Consume the output stream immediately so no data is missed. We keep the
-    // raw text (with control codes) for the live terminal, but store an
-    // ANSI-stripped copy for a clean exported log.
+    // Publish a pending result up front and keep updating it as output streams.
+    // This way Export always has something to save (so the log folder is created)
+    // even if the run is still going or the shell never reports an end event.
+    const result: RunResult = { scriptPath, command, startTime, exitCode: null, output: '' };
+    this.lastRun = result;
+    managed.result = result;
+
+    // Keep the raw text (control codes intact) so we can re-strip exactly once
+    // the command ends; append a cheap per-chunk strip in the meantime for live
+    // export. \r\n is normalised to \n for a tidy log.
     let raw = '';
+    const tidy = (s: string): string => stripAnsi(s).replace(/\r\n?/g, '\n');
     const readDone = (async () => {
       for await (const chunk of execution.read()) {
         raw += chunk;
+        result.output += tidy(chunk);
       }
     })();
 
@@ -114,15 +147,9 @@ export class Runner {
       }
       endSub.dispose();
       await readDone.catch(() => {});
-      const output = stripAnsi(raw).replace(/\r\n?/g, '\n').replace(/^\n+/, '');
-      this.lastRun = {
-        scriptPath,
-        command,
-        startTime,
-        exitCode: e.exitCode ?? null,
-        output,
-      };
-      onComplete?.(this.lastRun);
+      result.exitCode = e.exitCode ?? null;
+      result.output = tidy(raw).replace(/^\n+/, '');
+      onComplete?.(result);
     });
   }
 
